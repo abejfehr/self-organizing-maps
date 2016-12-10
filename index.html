@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>SOM</title>
+    <style>
+      html, body {
+        color: white;
+        font-family: sans-serif;
+        margin: 0;
+        padding: 0;
+      }
+      a {
+        color: lightgray;
+        text-decoration: none;
+      }
+      a:hover {
+        color: white;
+      }
+      #info {
+        position: absolute;
+        left: 20px;
+        top: 20px;
+        width: 500px;
+      }
+      #epochs {
+        position: absolute;
+        bottom: 20px;
+        right: 20px;
+        margin: 0;
+        padding: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="som-canvas" width="640" height="480"></canvas>
+    <div id="info">
+      <h1>Self Organizing Feature Maps</h1>
+      <p>This is an HTML5 canvas implementation of Kohonen's Self Organizing Feature Maps and was made following <a href="http://www.ai-junkie.com/ann/som/som1.html">this tutorial</a>.</p>
+      <p>Press any key to restart the simulation.</p>
+    </div>
+    <p id="epochs">
+    </p>
+    <script>
+// Get the canvas and make it the right size
+var canvas = document.getElementById("som-canvas");
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
+var ctx = canvas.getContext("2d");
+
+// Keep track of the number of iterations
+var iterationCount, constStartLearningRate, learningRate;
+var numSets;
+var pixelSize;
+var width, height;
+
+var requestId;
+
+function init () {
+  iterationCount = 0;
+  constStartLearningRate = 0.1;
+  learningRate = 0.8;
+  numSets = 20;
+  pixelSize = 12;
+  width = Math.ceil(canvas.width / pixelSize);
+  height = Math.ceil(canvas.height / pixelSize);
+}
+
+function start () {
+  init();
+
+  // Create the data set
+  var set = [];
+  for (var i = 0; i < numSets; ++i) {
+    set.push([
+      (Math.random()),
+      (Math.random()),
+      (Math.random()),
+    ]);
+  }
+
+  // Cancel anything we currently have going
+  window.cancelAnimationFrame(requestId);
+
+  // Start again
+  (new SOM()).epoch(set);
+}
+
+function render (set) {
+  for (var i = 0; i < 5; ++i) {
+    set[i].render();
+  }
+}
+
+function SOM () {
+
+  var SOM = [];
+
+  var numIterations = 250;
+
+  // Create all the nodes
+  for (var row = 0; row < height; ++row) {
+    for (var col = 0; col < width; ++col) {
+      SOM.push(Node(col, row, 3));
+    }
+  }
+
+  // This is the topological 'radius' of the feature map
+  var mapRadius = Math.max(width, height) / 2;
+
+  // used in the calculation of the neighbourhood width of m_dInfluence
+  var timeConstant = numIterations / Math.log(mapRadius);
+
+  var epoch = function (data) {
+    var step = function () {
+      // Choose a vector at random from the training set to be this timestep's input vector
+      var thisVector = Math.floor(Math.random() * (data.length));
+
+      // Present the vector to each node and determine the BMU
+      var winningNode = findBestMatchingNode(data[thisVector]);
+
+      // Calculate the width of the neightbourhood this timestep
+      var neighbourhoodRadius = mapRadius * Math.exp(-iterationCount / timeConstant);
+
+      // For each node calculate the influence. If it is greater than zero, adjust the node's weights accordingly
+      for (var n = 0; n < SOM.length; ++n) {
+
+        var distToNodeSq = Math.pow(winningNode.x - SOM[n].x, 2) + Math.pow(winningNode.y - SOM[n].y, 2);
+
+        var widthSq = Math.pow(neighbourhoodRadius, 2);
+
+        if (distToNodeSq < Math.pow(neighbourhoodRadius, 2)) {
+          influence = Math.exp(-distToNodeSq / (2 * widthSq));
+          SOM[n].adjustWeights(data[thisVector], learningRate, influence);
+        }
+      }
+
+      // Reduce the learning rate
+      learningRate = constStartLearningRate * Math.exp(-iterationCount / numIterations);
+
+      // Render everything
+      render();
+
+      ++iterationCount;
+
+      document.getElementById("epochs").innerText = iterationCount + " epochs";
+
+      if (--numIterations > 0) {
+        requestId = window.requestAnimationFrame(step);
+      }
+    };
+    requestId = window.requestAnimationFrame(step)
+
+    return true;
+ }
+
+  var findBestMatchingNode = function (vec) {
+   var winner;
+
+   var lowestDistance = Infinity;
+
+    for (var n = 0; n < SOM.length; ++n) {
+      var dist = SOM[n].getDistance(vec);
+
+      if (dist < lowestDistance) {
+        lowestDistance = dist;
+
+        winner = SOM[n];
+      }
+    }
+
+    return winner;
+  }
+
+  var render = function () {
+    for (var i = 0; i < SOM.length; ++i) {
+      SOM[i].render();
+    }
+  }
+
+  return {
+    epoch: epoch,
+    findBestMatchingNode: findBestMatchingNode,
+  }
+}
+
+function Node (x, y, numWeights) {
+  var weights = [];
+
+  for (var i = 0; i < numWeights; ++i) {
+    weights.push(Math.random());
+  }
+
+  var getDistance = function (inputVector) {
+    var distance = 0;
+
+    for (var i = 0; i < weights.length; ++i) {
+      distance += Math.pow(inputVector[i] - weights[i], 2);
+    }
+
+    return Math.sqrt(distance);
+  }
+
+  var adjustWeights = function (target, learningRate, influence) {
+    // debugger;
+    for (var w = 0; w < target.length; ++w) {
+      weights[w] += learningRate * influence * (target[w] - weights[w]);
+    }
+  }
+
+  var render = function () {
+    ctx.fillStyle = "rgb(" + Math.floor(255 * weights[0]) + ", " + Math.floor(255 * weights[1]) + ", " + Math.floor(255 * weights[2]) + ")";
+    ctx.fillRect(x * pixelSize, y * pixelSize, pixelSize, pixelSize);
+  }
+
+  return {
+    x: x,
+    y: y,
+    getDistance: getDistance,
+    render: render,
+    adjustWeights: adjustWeights,
+  }
+}
+
+// Restart the simulation on any keypress
+document.onkeypress = function () {
+  start();
+};
+
+start();
+
+    </script>
+  </body>
+</html>

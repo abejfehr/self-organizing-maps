@@ -62,22 +62,48 @@ function init () {
   learningRate = 0.8;
   numSets = 20;
   pixelSize = 12;
+
+  // If it's a mobile device, make the pixels bigger so there are fewer
+  if (/Android|webOS|iPhone|iPad|iPod|BlackBerry/i.test(navigator.userAgent) ) {
+    pixelSize = 25;
+  }
+
   width = Math.ceil(canvas.width / pixelSize);
   height = Math.ceil(canvas.height / pixelSize);
+
 }
 
 function start () {
   init();
 
   // Create the data set
+  var red = [1, 0, 0];
+  var green = [0, 1, 0];
+  var dk_green = [0, 0.5, 0.25];
+  var blue = [0, 0, 1];
+  var dk_blue = [0, 0, 0.5];
+  var yellow = [1, 1, 0.2];
+  var orange = [1, 0.4, 0.25];
+  var purple = [1, 0, 1];
+
   var set = [];
-  for (var i = 0; i < numSets; ++i) {
-    set.push([
-      (Math.random()),
-      (Math.random()),
-      (Math.random()),
-    ]);
-  }
+  set.push(red);
+  set.push(green);
+  set.push(dk_green);
+  set.push(blue);
+  set.push(dk_blue);
+  set.push(yellow);
+  set.push(orange);
+  set.push(purple);
+
+  // var set = [];
+  // for (var i = 0; i < numSets; ++i) {
+  //   set.push([
+  //     (Math.random()),
+  //     (Math.random()),
+  //     (Math.random()),
+  //   ]);
+  // }
 
   // Cancel anything we currently have going
   window.cancelAnimationFrame(requestId);
@@ -149,9 +175,8 @@ function SOM () {
         requestId = window.requestAnimationFrame(step);
       }
     };
+    render();
     requestId = window.requestAnimationFrame(step)
-
-    return true;
  }
 
   var findBestMatchingNode = function (vec) {
